@@ -283,8 +283,7 @@ func (r *applicationPrincipalResource) Delete(ctx context.Context, req resource.
 				time.Sleep(1 * time.Second)
 				currentStatus, err := r.provider.client.GetApplicationDeploymentStatus(deploymentID)
 				if err != nil {
-					resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get deployment status during wait, got error: %s", err))
-					return
+					continue
 				}
 				if !utils.ShouldStopDeployment(deploymentType, currentStatus) {
 					break
