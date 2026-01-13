@@ -142,25 +142,34 @@ func (r *applicationPrincipalResource) Create(ctx context.Context, req resource.
 
 	var deploymentResp *webclient.ApplicationDeploymentFindByApplicationAndEnvironmentResponse
 
-	if isConnector {
-		// Find deployment and start it
-		applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
-		environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
-		deploymentResp, err = r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
-		if err != nil {
-			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to find deployment, got error: %s", err))
-			return
-		}
-		if len(deploymentResp.Embedded.ApplicationDeploymentResponses) > 0 {
-			deploymentID := deploymentResp.Embedded.ApplicationDeploymentResponses[0].Uid
-			startRequest := webclient.ApplicationDeploymentOperationRequest{Action: "START"}
-			err = r.provider.client.OperateApplicationDeployment(deploymentID, "START", startRequest)
-			if err != nil {
-				resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start connector, got error: %s", err))
-				return
-			}
-		}
-	}
+    if isConnector {
+        // Find deployment and start it
+        applicationURL := fmt.Sprintf("%s/applications/%v", r.provider.client.ApiURL, data.Application.ValueString())
+        environmentURL := fmt.Sprintf("%s/environments/%v", r.provider.client.ApiURL, data.Environment.ValueString())
+        deploymentResp, err = r.provider.client.FindApplicationDeploymentByApplicationAndEnvironment(applicationURL, environmentURL)
+        if err != nil {
+            resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to find deployment, got error: %s", err))
+            return
+        }
+        if len(deploymentResp.Embedded.ApplicationDeploymentResponses) > 0 {
+            deploymentID := deploymentResp.Embedded.ApplicationDeploymentResponses[0].Uid
+            // Get deployment status
+            status, err := r.provider.client.GetApplicationDeploymentStatus(deploymentID)
+            if err != nil {
+                resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get deployment status, got error: %s", err))
+                return
+            }
+            deploymentType := "Connector"
+            if utils.ShouldStartDeployment(deploymentType, status) {
+                startRequest := webclient.ApplicationDeploymentOperationRequest{Action: "START"}
+                err = r.provider.client.OperateApplicationDeployment(deploymentID, "START", startRequest)
+                if err != nil {
+                    resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to start connector, got error: %s", err))
+                    return
+                }
+            }
+        }
+    }
 }
 
 func (r *applicationPrincipalResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
